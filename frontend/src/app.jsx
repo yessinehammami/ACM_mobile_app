@@ -3,7 +3,24 @@ import Papa from 'papaparse';
 
 // CSV download URL from GitHub Releases
 const CSV_URL = 'https://github.com/yessinehammami/ACM_app/releases/download/latest/ACM_data.csv';
+// Fallback for CORS issues
+const CSV_URL_RAW = 'https://raw.githubusercontent.com/yessinehammami/ACM_app/main/backend/data/ACM_data.csv';
 const PAGE_SIZE = 200;
+
+// Helper function to fetch CSV with fallback
+const fetchCSV = async () => {
+  try {
+    const res = await fetch(CSV_URL);
+    if (res.ok) return await res.text();
+  } catch (e) {
+    console.warn('Release URL failed, trying fallback...', e);
+  }
+  
+  // Fallback to raw GitHub URL
+  const res = await fetch(CSV_URL_RAW);
+  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+  return await res.text();
+};
 
 const FILTER_COLUMNS = [
   { key: 'Produit', label: 'Produit' },
@@ -180,14 +197,8 @@ export function App() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-        const res = await fetch(CSV_URL, { signal: controller.signal });
+        const csvText = await fetchCSV();
         clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-
-        const csvText = await res.text();
         
         // Parse CSV using PapaParse
         Papa.parse(csvText, {
@@ -311,10 +322,7 @@ export function App() {
   const triggerRefresh = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch(CSV_URL);
-      if (!res.ok) throw new Error('Failed to fetch latest data');
-      
-      const csvText = await res.text();
+      const csvText = await fetchCSV();
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
