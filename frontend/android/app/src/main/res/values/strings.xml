@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ACM_app</string>
+    <string name="title_activity_main">ACM_app</string>
+    <string name="package_name">com.acmapp.dm</string>
+    <string name="custom_url_scheme">com.acmapp.dm</string>
+</resources>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
+import Papa from 'papaparse';
 
-const API = 'http://localhost:8000';
+// CSV download URL from GitHub Releases
+const CSV_URL = 'https://github.com/yessinehammami/ACM_app/releases/download/latest/ACM_data.csv';
 const PAGE_SIZE = 200;
 
 const FILTER_COLUMNS = [
@@ -176,21 +178,50 @@ export function App() {
     const loadData = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-        const res = await fetch(`${API}/data/all`, { signal: controller.signal });
+        const res = await fetch(CSV_URL, { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
 
-        const data = await res.json();
-        setAllRows(data.rows);
-        setInitialOptions(data.options);
-        setOptions(data.options); // Initialize dynamic options with all options
-        resultsCache.current = {};
-        setLoading(false);
+        const csvText = await res.text();
+        
+        // Parse CSV using PapaParse
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            const rows = results.data.filter(row => Object.values(row).some(val => val)); // Filter empty rows
+            
+            // Build options for each column
+            const options = {};
+            const filterKeys = ['Produit', 'Importateur', 'Fournisseur', 'Provenance', 
+                               'N° Lot', 'Fabrication', 'Expiration', 'article_code', 'Référence'];
+            
+            filterKeys.forEach(key => {
+              const uniqueVals = new Set();
+              rows.forEach(row => {
+                const val = row[key];
+                if (val !== null && val !== undefined && val !== '' && val !== 'N/A') {
+                  uniqueVals.add(val);
+                }
+              });
+              options[key] = Array.from(uniqueVals).sort();
+            });
+            
+            setAllRows(rows);
+            setInitialOptions(options);
+            setOptions(options);
+            resultsCache.current = {};
+            setLoading(false);
+          },
+          error: (error) => {
+            throw new Error(`CSV parsing error: ${error.message}`);
+          }
+        });
       } catch (e) {
         console.error('Failed to load data:', e.message, e);
         alert(`Error loading data: ${e.message}`);
@@ -279,25 +310,52 @@ export function App() {
 
   const triggerRefresh = async () => {
     setRefreshing(true);
-    await fetch(`${API}/refresh`, { method: 'POST' });
-
-    const poll = setInterval(async () => {
-      const status = await fetch(`${API}/refresh-status`).then(r => r.json());
-      if (!status.running) {
-        clearInterval(poll);
-        setRefreshing(false);
-
-        const res = await fetch(`${API}/data/all`);
-        const data = await res.json();
-        setAllRows(data.rows);
-        setInitialOptions(data.options);
-        setOptions(data.options); // Reset options to all options after refresh
-        setPage(1);
-        setFilters({});
-        resultsCache.current = {};
-        filterAndPaginate(data.rows, {}, 1);
-      }
-    }, 1000);
+    try {
+      const res = await fetch(CSV_URL);
+      if (!res.ok) throw new Error('Failed to fetch latest data');
+      
+      const csvText = await res.text();
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rows = results.data.filter(row => Object.values(row).some(val => val));
+          
+          const options = {};
+          const filterKeys = ['Produit', 'Importateur', 'Fournisseur', 'Provenance', 
+                             'N° Lot', 'Fabrication', 'Expiration', 'article_code', 'Référence'];
+          
+          filterKeys.forEach(key => {
+            const uniqueVals = new Set();
+            rows.forEach(row => {
+              const val = row[key];
+              if (val !== null && val !== undefined && val !== '' && val !== 'N/A') {
+                uniqueVals.add(val);
+              }
+            });
+            options[key] = Array.from(uniqueVals).sort();
+          });
+          
+          setAllRows(rows);
+          setInitialOptions(options);
+          setOptions(options);
+          setPage(1);
+          setFilters({});
+          resultsCache.current = {};
+          filterAndPaginate(rows, {}, 1);
+          setRefreshing(false);
+        },
+        error: (error) => {
+          console.error('Refresh error:', error);
+          alert('Error refreshing data');
+          setRefreshing(false);
+        }
+      });
+    } catch (e) {
+      console.error('Refresh failed:', e);
+      alert('Error refreshing data: ' + e.message);
+      setRefreshing(false);
+    }
   };
 
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
