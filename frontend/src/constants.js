@@ -4,11 +4,6 @@ export const GITHUB_CSV_URL = import.meta.env.VITE_GITHUB_CSV_URL || null;
 // Bundled CSV (baked into the APK at build time)
 export const BUNDLED_CSV_URL = '/ACM_data.csv';
 
-// Storage Keys
-export const STORAGE_KEY = 'acm_csv_data';
-export const STORAGE_TIMESTAMP_KEY = 'acm_data_timestamp';
-export const STORAGE_SOURCE_KEY = 'acm_data_source';
-
 // UI Constants
 export const PAGE_SIZE = 200;
 
