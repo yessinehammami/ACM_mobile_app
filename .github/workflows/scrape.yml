@@ -1,0 +1,41 @@
+name: Monthly ACM Data Scrape
+
+on:
+  schedule:
+    - cron: '0 23 1 * *'   # 1st of every month at 23:00 UTC
+  workflow_dispatch:         # Allow manual trigger from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Run scraper
+        env:
+          HEADLESS: "true"
+        run: python backend/scrape.py
+
+      - name: Commit updated CSV files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/ACM_data.csv backend/data/ACM_data.csv
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update ACM data [$(date +'%Y-%m-%d')]"
+          git push

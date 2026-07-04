@@ -3,6 +3,7 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from io import StringIO
+import os
 import pandas as pd
 
 BASE_URL_articles = "https://dpm.tn/controle-technique/amc/liste-des-articles"
@@ -10,6 +11,10 @@ BASE_URL_articles = "https://dpm.tn/controle-technique/amc/liste-des-articles"
 
 def make_driver():
     chrome_options = webdriver.ChromeOptions()
+    if os.environ.get("HEADLESS", "").lower() == "true":
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -88,11 +93,20 @@ def get_all_articles_table(progress_callback=None):
 # Allows running the scraper standalone too, e.g. via cron:
 # python scrape.py
 if __name__ == "__main__":
-    import os
+    import sys
+    from pathlib import Path
+
     result = get_all_articles_table()
-    if result is not None:
-        out_path = os.path.join(os.path.dirname(__file__), "..", "data", "ACM_data.csv")
-        result.to_csv(out_path)
-        print(f"Saved {len(result)} rows to {out_path}")
-    else:
+    if result is None or result.empty:
         print("No data scraped.")
+        sys.exit(1)
+
+    root = Path(__file__).parent.parent
+    output_paths = [
+        root / "backend" / "data" / "ACM_data.csv",
+        root / "frontend" / "public" / "ACM_data.csv",
+    ]
+    for path in output_paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        result.to_csv(path, index=False)
+        print(f"Saved {len(result)} rows to {path}")
