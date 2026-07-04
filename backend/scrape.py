@@ -90,8 +90,8 @@ def get_all_articles_table(progress_callback=None):
     return None
 
 
-# Allows running the scraper standalone too, e.g. via cron:
-# python scrape.py
+# Allows running the scraper standalone, e.g. via GitHub Actions:
+# python backend/scrape.py
 if __name__ == "__main__":
     import sys
     from pathlib import Path
@@ -101,12 +101,7 @@ if __name__ == "__main__":
         print("No data scraped.")
         sys.exit(1)
 
-    root = Path(__file__).parent.parent
-    output_paths = [
-        root / "backend" / "data" / "ACM_data.csv",
-        root / "frontend" / "public" / "ACM_data.csv",
-    ]
-    for path in output_paths:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        result.to_csv(path, index=False)
-        print(f"Saved {len(result)} rows to {path}")
+    out_path = Path(__file__).parent.parent / "frontend" / "public" / "ACM_data.csv"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(out_path, index=False)
+    print(f"Saved {len(result)} rows to {out_path}")

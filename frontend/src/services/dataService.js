@@ -1,6 +1,5 @@
 import Papa from 'papaparse';
 import {
-  CSV_API_URL,
   GITHUB_CSV_URL,
   BUNDLED_CSV_URL,
   STORAGE_KEY,
@@ -34,23 +33,12 @@ const tryFetch = async (url, timeoutMs = 10000) => {
 
 /**
  * Fetch CSV with fallback strategy:
- * 1. Try backend API (local server)
- * 2. Try GitHub raw URL (latest data from monthly Action run)
- * 3. Fall back to bundled CSV (data at APK build time)
- * 4. Fall back to localStorage cache
+ * 1. Try GitHub raw URL (latest data from monthly Action run)
+ * 2. Fall back to bundled CSV (data at APK build time)
+ * 3. Fall back to localStorage cache
  */
 export const fetchCSV = async () => {
-  // Strategy 1: Backend API
-  console.log('Attempting to fetch CSV from backend:', CSV_API_URL);
-  const backendData = await tryFetch(CSV_API_URL, 10000);
-  if (backendData) {
-    console.log('✓ CSV loaded from BACKEND API, size:', backendData.length);
-    saveToCache(backendData, 'backend');
-    return { data: backendData, source: 'backend' };
-  }
-  console.warn('Backend API failed, trying next source...');
-
-  // Strategy 2: GitHub raw URL (updated monthly by GitHub Actions)
+  // Strategy 1: GitHub raw URL (updated monthly by GitHub Actions)
   if (GITHUB_CSV_URL) {
     console.log('Attempting to fetch CSV from GitHub:', GITHUB_CSV_URL);
     const githubData = await tryFetch(GITHUB_CSV_URL, 15000);
@@ -62,7 +50,7 @@ export const fetchCSV = async () => {
     console.warn('GitHub CSV fetch failed, trying next source...');
   }
 
-  // Strategy 3: Bundled CSV (baked into the app at build time)
+  // Strategy 2: Bundled CSV (baked into the app at build time)
   console.log('Falling back to bundled CSV:', BUNDLED_CSV_URL);
   const bundledData = await tryFetch(BUNDLED_CSV_URL, 5000);
   if (bundledData) {
@@ -71,7 +59,7 @@ export const fetchCSV = async () => {
     return { data: bundledData, source: 'bundled' };
   }
 
-  // Strategy 4: localStorage cache (last successful fetch)
+  // Strategy 3: localStorage cache (last successful fetch)
   console.log('Trying cached data from localStorage...');
   try {
     const cachedData = localStorage.getItem(STORAGE_KEY);
@@ -84,7 +72,7 @@ export const fetchCSV = async () => {
     console.warn('Could not access localStorage:', e);
   }
 
-  throw new Error('Could not load CSV from any source (backend, github, bundled, or cache)');
+  throw new Error('Could not load CSV from any source (github, bundled, or cache)');
 };
 
 /**

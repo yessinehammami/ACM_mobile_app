@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import {
   FILTER_COLUMNS,
-  PAGE_SIZE,
-  STATUS_API_URL
+  PAGE_SIZE
 } from './constants.js';
 import { fetchCSV, parseCSVAndBuildOptions } from './services/dataService.js';
 import { filterAndPaginate } from './services/filterService.js';
-import { useSundayRefresh } from './hooks/useSundayRefresh.js';
 import { DesktopLayout } from './layouts/DesktopLayout.jsx';
 import { MobileLayout } from './layouts/MobileLayout.jsx';
 
@@ -30,9 +28,7 @@ export function App() {
 
   // Data source state
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [apiStatus, setApiStatus] = useState(null);
   const [dataSource, setDataSource] = useState(null);
-  const [backendLastUpdate, setBackendLastUpdate] = useState(null);
 
   // Refs
   const resultsCache = useRef({});
@@ -48,22 +44,6 @@ export function App() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Fetch API status
-        try {
-          const statusRes = await fetch(STATUS_API_URL);
-          if (statusRes.ok) {
-            const status = await statusRes.json();
-            setApiStatus(status);
-            if (status.last_update) {
-              setLastUpdate(new Date(status.last_update).toLocaleString());
-              setBackendLastUpdate(status.last_update);
-            }
-            console.log('API Status:', status);
-          }
-        } catch (statusErr) {
-          console.warn('Could not fetch API status:', statusErr);
-        }
-
         // Fetch CSV
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -85,28 +65,13 @@ export function App() {
         setLoading(false);
       } catch (e) {
         console.error('Failed to load data:', e.message, e);
-        alert(`Error loading data: ${e.message}\n\nPlease ensure:\n- Backend is running for online mode\n- Or bundled CSV exists in public folder for offline mode`);
+        alert(`Error loading data: ${e.message}`);
         setLoading(false);
       }
     };
     
     loadData();
   }, []);
-
-  // Sunday refresh hook
-  useSundayRefresh({
-    backendLastUpdate,
-    setBackendLastUpdate,
-    setLastUpdate,
-    setAllRows,
-    setInitialOptions,
-    setOptions,
-    setFilters,
-    setPage,
-    setCount,
-    setRows,
-    resultsCache
-  });
 
   // Filter and paginate
   const handleFilterChange = (key, value) => {

@@ -1,6 +1,2 @@
 selenium
 pandas
-fastapi
-uvicorn
-apscheduler
-python-multipart
