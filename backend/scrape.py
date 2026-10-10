@@ -1,41 +1,62 @@
-from selenium import webdriver
-from selenium.webdriver.support.ui import Select, WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from io import StringIO
-import os
+import time
+
 import pandas as pd
+import requests
+import urllib3
+from lxml import html
 
-BASE_URL_articles = "https://dpm.tn/controle-technique/amc/liste-des-articles"
+# dpm.tn serves an incomplete certificate chain, so verification is disabled.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+FORM_URL = "https://dpm.tn/dpm_pharm/aspamc/listproduit.php"
+RESULT_URL = "https://dpm.tn/dpm_pharm/aspamc/listamcproduit.php"
 
-def make_driver():
-    chrome_options = webdriver.ChromeOptions()
-    if os.environ.get("HEADLESS", "").lower() == "true":
-        chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--ignore-certificate-errors")
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option("useAutomationExtension", False)
-    return webdriver.Chrome(options=chrome_options)
+COLUMNS = ["N", "Date", "Produit", "Importateur", "Fournisseur",
+           "Provenance", "N° Lot", "Fabrication", "Expiration", "Extra"]
 
 
-def get_articles():
-    driver = make_driver()
-    wait = WebDriverWait(driver, 30)
-    try:
-        driver.get(BASE_URL_articles)
-        driver.switch_to.frame(wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe"))))
-        return driver.execute_script("""
-            var select = document.querySelector('select[name="it_codite"]');
-            return Array.from(select.options)
-                .filter(o => o.value)
-                .map(o => [o.value, o.text.trim()]);
-        """)
-    finally:
-        driver.quit()
+def _make_session():
+    session = requests.Session()
+    session.verify = False
+    session.headers["User-Agent"] = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+    return session
+
+
+def _post_with_retry(session, code, attempts=3):
+    for attempt in range(attempts):
+        try:
+            response = session.post(RESULT_URL, data={"it_codite": code}, timeout=30)
+            response.raise_for_status()
+            return response
+        except requests.RequestException:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(2 * (attempt + 1))
+
+
+def get_articles(session=None):
+    session = session or _make_session()
+    response = session.get(FORM_URL, timeout=30)
+    response.raise_for_status()
+    tree = html.fromstring(response.content)
+    return [
+        (o.get("value"), (o.text or "").strip())
+        for o in tree.xpath('//select[@name="it_codite"]/option')
+        if o.get("value")
+    ]
+
+
+def _parse_rows(page):
+    tree = html.fromstring(page)
+    rows = []
+    for tr in tree.xpath("//tr"):
+        cells = [td.text_content().replace("\xa0", " ").strip() for td in tr.xpath("./td")]
+        if len(cells) == len(COLUMNS) and cells[0] != "N":
+            rows.append(cells)
+    return rows
 
 
 def get_all_articles_table(progress_callback=None):
@@ -45,45 +66,26 @@ def get_all_articles_table(progress_callback=None):
     so callers (e.g. FastAPI background task) can report progress without
     this module depending on any UI framework.
     """
-    driver = make_driver()
-    wait = WebDriverWait(driver, 30)
+    session = _make_session()
+    articles = get_articles(session)
+    total = len(articles)
     all_data = []
 
-    try:
-        articles = get_articles()
-        total = len(articles)
+    for i, (code, label) in enumerate(articles):
+        try:
+            rows = _parse_rows(_post_with_retry(session, code).content)
+            if rows:
+                df = pd.DataFrame(rows, columns=COLUMNS)
+                df["article_code"] = code
+                df["article_label"] = label
+                all_data.append(df)
+        except Exception as e:
+            print(f"Error for {label}: {e}")
 
-        driver.get(BASE_URL_articles)
-        driver.switch_to.frame(wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe"))))
-
-        for i, (code, label) in enumerate(articles):
-            try:
-                Select(wait.until(EC.presence_of_element_located((By.NAME, "it_codite")))).select_by_value(code)
-                wait.until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit']"))).click()
-                wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-
-                if "Pas de produit" not in driver.page_source:
-                    table = wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-                    df = pd.read_html(StringIO(table.get_attribute("outerHTML")), header=0)[0]
-                    df.columns = ["N", "Date", "Produit", "Importateur", "Fournisseur",
-                                  "Provenance", "N° Lot", "Fabrication", "Expiration", "Extra"]
-                    df["article_code"] = code
-                    df["article_label"] = label
-                    all_data.append(df)
-
-                driver.back()
-                driver.switch_to.frame(wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe"))))
-
-            except Exception as e:
-                print(f"Error for {label}: {e}")
-
-            if progress_callback:
-                progress_callback(i + 1, total, label)
-            else:
-                print(f"Chargement... {i+1}/{total} ({label})")
-
-    finally:
-        driver.quit()
+        if progress_callback:
+            progress_callback(i + 1, total, label)
+        else:
+            print(f"Chargement... {i+1}/{total} ({label})")
 
     if all_data:
         return pd.concat(all_data, ignore_index=True)

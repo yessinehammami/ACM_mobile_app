@@ -26,12 +26,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r backend/requirements.txt
 
-      - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
-
       - name: Run scraper
-        env:
-          HEADLESS: "true"
         run: python backend/scrape.py
 
       - name: Commit updated CSV files
