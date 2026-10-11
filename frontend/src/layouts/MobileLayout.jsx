@@ -1,4 +1,5 @@
 import { FilterDropdown } from '../components/FilterDropdown.jsx';
+import { PharmacyLogo } from '../components/PharmacyLogo.jsx';
 import { FILTER_COLUMNS, PAGE_SIZE } from '../constants.js';
 
 export function MobileLayout({
@@ -47,8 +48,9 @@ export function MobileLayout({
         flexShrink: 0,
         flexWrap: 'wrap'
       }}>
-        <h1 style={{ margin: '0', fontSize: '18px', color: '#00d4ff', fontWeight: '700' }}>
-          📦 ACM
+        <h1 style={{ margin: '0', fontSize: '18px', color: '#00d4ff', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.45em' }}>
+          <PharmacyLogo size={20} />
+          AMC / DM
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'flex-end' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>

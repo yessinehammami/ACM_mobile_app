@@ -1,4 +1,5 @@
 import { FilterDropdown } from '../components/FilterDropdown.jsx';
+import { PharmacyLogo } from '../components/PharmacyLogo.jsx';
 import { FILTER_COLUMNS, PAGE_SIZE } from '../constants.js';
 
 export function DesktopLayout({
@@ -37,8 +38,9 @@ export function DesktopLayout({
         height: '60px',
         flexShrink: 0
       }}>
-        <h1 style={{ margin: '0', fontSize: '24px', color: '#00d4ff', fontWeight: '700' }}>
-          📦 ACM Database
+        <h1 style={{ margin: '0', fontSize: '24px', color: '#00d4ff', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.45em' }}>
+          <PharmacyLogo />
+          AMC / DM
         </h1>
         <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
           <div style={{ fontSize: '12px', color: '#b0b0d0' }}>
