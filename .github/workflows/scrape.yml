@@ -1,8 +1,8 @@
-name: Monthly ACM Data Scrape
+name: Weekly ACM Data Scrape
 
 on:
   schedule:
-    - cron: '0 23 1 * *'   # 1st of every month at 23:00 UTC
+    - cron: '0 23 * * 5'   # Saturday 00:00 Tunisia time (Friday 23:00 UTC)
   workflow_dispatch:         # Allow manual trigger from GitHub UI
 
 permissions:
