@@ -198,10 +198,9 @@ export function DesktopLayout({
                                   padding: '0.8rem',
                                   color: '#e0e0e0',
                                   fontSize: '12px',
-                                  maxWidth: '200px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
+                                  whiteSpace: 'normal',
+                                  overflowWrap: 'anywhere',
+                                  verticalAlign: 'top'
                                 }}
                               >
                                 {row[key] || '—'}
