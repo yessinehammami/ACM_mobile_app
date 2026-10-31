@@ -25,10 +25,10 @@ def _make_session():
     return session
 
 
-def _post_with_retry(session, code, attempts=3):
+def _request_with_retry(request, *args, attempts=3, **kwargs):
     for attempt in range(attempts):
         try:
-            response = session.post(RESULT_URL, data={"it_codite": code}, timeout=30)
+            response = request(*args, **kwargs)
             response.raise_for_status()
             return response
         except requests.RequestException:
@@ -37,10 +37,16 @@ def _post_with_retry(session, code, attempts=3):
             time.sleep(2 * (attempt + 1))
 
 
+def _post_with_retry(session, code, attempts=3):
+    return _request_with_retry(
+        session.post, RESULT_URL, data={"it_codite": code}, timeout=30,
+        attempts=attempts,
+    )
+
+
 def get_articles(session=None):
     session = session or _make_session()
-    response = session.get(FORM_URL, timeout=30)
-    response.raise_for_status()
+    response = _request_with_retry(session.get, FORM_URL, timeout=30)
     tree = html.fromstring(response.content)
     return [
         (o.get("value"), (o.text or "").strip())
